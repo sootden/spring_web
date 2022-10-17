@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/security https://www.springframework.org/schema/security/spring-security.xsd">
+    <bean id="customAccessDenied" class="org.zerock.security.CustomAccessDeniedHandler"></bean>
+    <bean id="customLoginSuccess" class="org.zerock.security.CustomLoginSuccessHandler"></bean>
+    <bean id="bcryptPasswordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"></bean>
+<!--    <bean id="customPasswordEncoder" class="org.zerock.security.CustomNoOpPasswordEncoder"></bean>-->
+    <bean id="customUserDetailsService" class="org.zerock.security.CustomUserDetailsService"></bean>
+
+
+    <!--    <security:http>의 기본설정은 표현식 -->
+    <security:http auto-config="true" use-expressions="true">
+        <security:intercept-url pattern="/sample/all" access="permitAll"/>
+<!--     '/sample/member'라는 url은 'ROLE_MEMBER'라는 권한이 있는 사용자만 접근 가능-->
+        <security:intercept-url pattern="/sample/member" access="hasRole('ROLE_MEMBER')"/>
+        <security:intercept-url pattern="/sample/admin" access="hasRole('ROLE_ADMIN')"/>
+
+<!--        org.springframework.web.access.AccessDeniedHandler인터페이스의 구현체를 지정하거나 error-page를 지정할 수 있다.-->
+<!--        <security:access-denied-handler error-page="/accessError"/>-->
+<!--        AccessDeniedHandler인터페이스 구현 클래스 지정 -->
+        <security:access-denied-handler ref="customAccessDenied"/>
+
+<!--        스프링 시큐리티에서 기본적으로 제공하는 로그인 폼-->
+<!--        <security:form-login/>-->
+<!--        직접 login-page를 특정한 url로 지정가능 /  이때 login-page의 url은 get방식이어야함 -->
+        <security:form-login login-page="/customLogin" authentication-success-handler-ref="customLoginSuccess"/>
+        <!--        자동로그인에서 데이터베이스를 이용하는 설정-->
+        <security:remember-me data-source-ref="dataSource" token-validity-seconds="604800"/>
+<!--        <security:csrf disabled="true"/>-->
+<!--        로그아웃의 url 지정 (get방식)/ invalidate-session속성 : 로그아웃 시 세션 무효화 설정-->
+        <security:logout logout-url="/customLogout" invalidate-session="true" delete-cookies="remember-me,JSESSION_ID"/>
+    </security:http>
+
+<!--  authentication-manager : 인증 매니저
+      스프링 시큐리티 5버전부터는 반드시 PasswordEncoder를 이용해서 변경됨
+      {noop} : 패스워드의 인코딩 처리없이 사용
+-->
+<!--    jdbc를 이용하는 간편 인증/ 권한처리
+     users-by-username-query : 인증하는데 필요한 쿼리
+     authorities-by-username-query : 권한을 확인하는데 필요한 쿼리
+-->
+<!--    <security:authentication-manager>-->
+<!--        <security:authentication-provider>-->
+<!--        <security:jdbc-user-service data-source-ref="dataSource" users-by-username-query="select userid, userpw, enabled from tbl_member where userid=?"-->
+<!--                                    authorities-by-username-query="select userid, auth from tbl_member_auth where userid=?"/>-->
+<!--        <security:password-encoder ref="bcryptPasswordEncoder"/>-->
+<!--        </security:authentication-provider>-->
+<!--    </security:authentication-manager>-->
+
+
+    <security:authentication-manager>
+        <security:authentication-provider user-service-ref="customUserDetailsService">
+            <security:password-encoder ref="bcryptPasswordEncoder"/>
+        </security:authentication-provider>
+    </security:authentication-manager>
+</beans>
