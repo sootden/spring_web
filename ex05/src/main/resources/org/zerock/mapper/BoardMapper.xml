@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTO Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.zerock.mapper.BoardMapper">
+    <select id="getList" resultType="org.zerock.domain.BoardVO">
+        <![CDATA[
+            select * from tbl_board where bno > 0
+        ]]>
+    </select>
+
+    <insert id="insert">
+        insert into tbl_board(bno, title, content, writer)
+        values (seq_board.nextval, #{title}, #{content}, #{writer})
+    </insert>
+
+<!--    @SelectKey 라는 MyBatis의 어노테이션 사용하여 PK값을 미리(before) SQL을 통해서 처리해두고
+        특정한 이름으로 결과를 보관하는 방식.
+        이때 @Insert할때 #{bno}와 같이 이미 처리된 결과를 치환하는 것을 알 수 있다.
+-->
+    <insert id="insertSelectKey">
+        <selectKey keyProperty="bno" order="BEFORE" resultType="long">
+            select seq_board.nextval from dual
+        </selectKey>
+
+        insert into tbl_board (bno, title, content, writer)
+        values (#{bno}, #{title}, #{content}, #{writer})
+    </insert>
+
+    <select id="read" resultType="org.zerock.domain.BoardVO">
+        select * from tbl_board where bno = #{bno}
+    </select>
+
+    <delete id="delete">
+        delete from tbl_board where bno = #{bnp}
+    </delete>
+
+    <update id="update">
+        update tbl_board
+        set title = #{title},
+        content = #{content},
+        writer = #{writer},
+        updateDate = sysdate
+        where bno = #{bno}
+    </update>
+
+    <select id="getListWithPaging" resultType="org.zerock.domain.BoardVO">
+        <![CDATA[
+            select
+                bno, title, content, writer, regdate, updatedate, replycnt
+            from
+                (
+                select /*+INDEX_DESC(tbl_board pk__board) */
+                    rownum rn, bno, title, content, writer, regdate,updatedate, replycnt
+                from
+                    tbl_board
+                where
+        ]]>
+       <include refid="criteria"></include>
+        <![CDATA[
+                rownum <= #{pageNum} * #{amount}
+                )
+        where rn > (#{pageNum} - 1) * #{amount}
+        ]]>
+    </select>
+    <select id="getTotalCount" resultType="int">
+        select count(*) from tbl_board
+        where
+        <include refid="criteria"></include>
+        bno > 0
+    </select>
+
+<!--    검색 조건을 처리하는 부분은 데이터의 개수를 처리하는 부분에서도 동일하게 적용됨
+       MyBatis의 <sql>를 사용하여 sql일부를 별도로 보관하고 필요한 경우 include시키는 형태로 사용
+-->
+    <sql id="criteria">
+        <trim prefix="(" suffix=") AND" prefixOverrides="OR">
+            <foreach item='type' collection="typeArr">
+                <trim prefix="OR">
+                    <choose>
+                        <when test="type == 'T'.toString()">
+                            title like '%'||#{keyword}||'%'
+                        </when>
+                        <when test="type == 'C'.toString()">
+                            content like '%'||#{keyword}||'%'
+                        </when>
+                        <when test="type == 'W'.toString()">
+                            writer like '%'||#{keyword}||'%'
+                        </when>
+                    </choose>
+                </trim>
+            </foreach>
+        </trim>
+    </sql>
+
+    <update id="updateReplyCnt">
+        update tbl_board set replycnt = replycnt + #{amount} where bno = #{bno}
+    </update>
+</mapper>
+<!--
+    Mapper xml파일 작성시 주의
+    - <mapper>의 namespace속성값을 Mapper인터페이스와 동일한 이름을 줘야함
+    - <select>태그의 id속성값은 메서드의 이름과 일치해야함
+    - resultType은 select결과를 특정 클래스의 객체로 만들기위해 설정
+    - CDATA는 xml에서 부등호를 사용하기위해 사용
+
+    MyBatis는 내부적으로 JDBC의 PreparedStatement를 활용하고
+    필요한 파라미터를 처리하는 "?"에 대한 치환을 #{속성}을 이용해 처리
+-->
